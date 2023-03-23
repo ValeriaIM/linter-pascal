@@ -22,6 +22,125 @@ def print_error(e, line):
     print(f'{e}, строка: {str(line)}')
 
 
+def check_expr_indent(tokens, nesting):
+    new_tokens = []
+    for_process_br = []
+    for_process_expr = []
+    l_brackets = [TypeToken.L_PAREN, TypeToken.L_BRACKET]
+    r_brackets = [TypeToken.R_PAREN, TypeToken.R_BRACKET]
+
+    admit = [
+        TypeToken.NAME, TypeToken.NUMBER, TypeToken.STRING,
+        TypeToken.EXPRESSION, TypeToken.BRACKETS,
+        TypeToken.OP_MATH, TypeToken.OP_LOGIC,
+        TypeToken.OP_ASSIGN, TypeToken.OP_COMPARE
+    ]
+
+    admit_br = [
+        TypeToken.NAME, TypeToken.NUMBER, TypeToken.STRING,
+        TypeToken.EXPRESSION, TypeToken.BRACKETS,
+        TypeToken.COMMA, TypeToken.DIAPASON,
+        TypeToken.OP_MATH, TypeToken.OP_LOGIC,
+        TypeToken.OP_ASSIGN, TypeToken.OP_COMPARE
+    ]
+
+    first_brackets = None
+    last_brackets = None
+    last_token = None
+
+    for token in tokens:
+        if token.type in l_brackets:
+            if nesting and first_brackets is None:
+                first_brackets = token
+                continue
+            for_process_br.append([token])
+
+        elif token.type in r_brackets:
+            if len(for_process_br) > 0:
+                if last_token.type is TypeToken.SPACE:
+                    print_error("Лишний пробел перед закрывающей скобкой",
+                                last_token.line)
+
+                for_process_br[-1].append(token)
+                expr_br = check_expr_indent(for_process_br.pop(), True)
+                expr_br.add_interior_tokens(for_process_br)
+                for_process_expr.append(expr_br)
+            else:
+                if nesting and last_brackets is None:
+                    last_brackets = token
+                    last_token = token
+                    continue
+                print_error("Лишняя закрывающая скобка", token.line)
+
+        elif token.type is TypeToken.SPACE:
+            last_token = token
+            if len(for_process_br) > 0:
+                if len(for_process_br[-1]) == 1:
+                    print_error("Лишний пробел после открывающей скобки",
+                                token.line)
+                    continue
+                for_process_br[-1].append(token)
+                continue
+            if len(for_process_expr) > 0:
+                for_process_expr.append(token)
+                if len(token.value) > 1:
+                    print_error("Слишком много пробелов",
+                                token.line)
+            else:
+                new_tokens.append(token)
+            continue
+
+        elif len(for_process_br) == 0:
+            if token.type in admit:
+                for_process_expr.append(token)
+                if last_token is not None:
+                    if not(last_token.type in [TypeToken.SPACE, TypeToken.TAB]):
+                        print_error("пропущен пробел", last_token.line)
+            else:
+                if len(for_process_expr) == 1:
+                    new_tokens.append(for_process_expr[0])
+                if len(for_process_expr) > 1:
+                    value = Token.get_values_tokens(for_process_expr)
+                    expr = Token(value, TypeToken.EXPRESSION,
+                                 for_process_expr[0].line)
+                    expr.add_interior_tokens(for_process_expr)
+                    new_tokens.append(expr)
+                for_process_expr = []
+                new_tokens.append(token)
+            last_token = token
+        else:
+            if token.type in admit_br:
+                for_process_br[-1].append(token)
+            elif token.type in [TypeToken.TAB, TypeToken.NEW_LINE]:
+                continue
+            else:
+                expr = check_expr_indent(for_process_br.pop(), True)
+                expr.add_interior_tokens(for_process_br)
+                for_process_expr.append(expr)
+                value = Token.get_values_tokens(for_process_expr)
+                expr = Token(value, TypeToken.EXPRESSION,
+                             for_process_expr[0].line)
+                expr.add_interior_tokens(for_process_expr)
+                new_tokens.append(expr)
+                new_tokens.append(token)
+            last_token = token
+
+    if nesting:
+        upd_tokens = [first_brackets]
+        for t in new_tokens:
+            upd_tokens.append(t)
+        for t2 in for_process_expr:
+            upd_tokens.append(t2)
+        upd_tokens.append(last_brackets)
+        value = Token.get_values_tokens(upd_tokens)
+        t = Token(value, TypeToken.EXPRESSION,
+                  first_brackets.line)
+        t.add_interior_tokens(upd_tokens)
+        return t
+    else:
+        return new_tokens
+
+
 class Linter:
     def __init__(self):
         self.setting = Setting()
@@ -33,9 +152,8 @@ class Linter:
         self.check_code = {
             "names": self.check_names,
             "poins": self.check_points,
-            "operator_indent": self.check_all_operator_indent,
+            "expression_indent": self.check_expression_indent,
             "punctuation_indent": self.punctuation_indent,
-            "brackets_indent": self.check_brackets_indent
             #"var_declaration_indent": self.check_var_indent,
             #"level_indent": self.check_level_indent,
             #"block_indent": self.check_block_indent,
@@ -181,90 +299,8 @@ class Linter:
 
         self.tokens = new_tokens
 
-    def check_all_operator_indent(self):
-        self.check_operator_indent(TypeToken.OP_MATH)
-        self.check_operator_indent(TypeToken.OP_COMPARE)
-        self.check_operator_indent(TypeToken.OP_LOGIC)
-        self.check_operator_indent(TypeToken.OP_ASSIGN)
-
-    def check_operator_indent(self, type_op):
-        fl_space = None
-        fl_op = False
-        op = None
-        ind = int(self.setting.indents["operator_indent"])
-
-        exp = []
-        new_tokens = []
-        err = None
-
-        if isinstance(self.tokens, list):
-            #без этого вылетает странная ошибка, которой нет при дебаге
-            for token in self.tokens:
-                if token.type in [TypeToken.NAME, TypeToken.EXPRESSION, TypeToken.NUMBER]:
-                    if len(exp) > 0:
-                        if fl_op:
-                            if fl_space is None and ind != 0:
-                                print_error("Пропущен пробел перед переменной", token.line)
-                            if fl_space is not None and err is not None:
-                                print(err, fl_space.line)
-                        else:
-                            print_error("Пропущен либо разделитель, либо оператор")
-                            for t in exp:
-                                new_tokens.append(t)
-                            exp = []
-                    err = None
-                    exp.append(token)
-                    fl_space = None
-                    op = None
-                elif token.type is TypeToken.SPACE:
-                    if len(exp) > 0:
-                        if len(token.value) < ind:
-                            err = "Не хватает пробела"
-                        if len(token.value) > ind:
-                            err = "Лишние пробелы"
-                        exp.append(token)
-                        fl_space = token
-                        op = None
-                        continue
-                    fl_space = token
-                    op = None
-                    new_tokens.append(token)
-                elif token.type is type_op:
-                    if len(exp) == 0:
-                        print_error("Пропущена переменная перед оператором", token.line)
-                    elif exp[-1].type is type_op:
-                        print_error("Пропущена переменная перед оператором", token.line)
-                    elif fl_space is None and ind != 0:
-                        print_error("Пропущен пробел перед оператором", token.line)
-                    elif fl_space is not None and err is not None:
-                        print(err, fl_space.line)
-                        err = None
-                    op = token
-                    fl_op = True
-                    fl_space = None
-                    exp.append(token)
-                else:
-                    if op is not None:
-                        print_error("Лишний оператор", token.line)
-                        exp.remove(op)
-                    if len(exp) > 1:
-                        if fl_space is not None:
-                            exp.remove(fl_space)
-                        t = Token(Token.get_values_tokens(exp), TypeToken.EXPRESSION, exp[0].line)
-                        t.add_interior_tokens(exp)
-                        new_tokens.append(t)
-                        if fl_space:
-                            new_tokens.append(fl_space)
-                    else:
-                        if len(exp) == 1:
-                            new_tokens.append(exp[0])
-                    exp = []
-                    op = None
-                    fl_space = None
-                    fl_op = False
-                    new_tokens.append(token)
-
-        self.tokens = new_tokens
+    def check_expression_indent(self):
+        self.tokens = check_expr_indent(self.tokens, False)
 
     def punctuation_indent(self):
         last_token = None
@@ -285,73 +321,3 @@ class Linter:
                 if last_token.type in [TypeToken.COLON, TypeToken.COMMA]:
                     print_error("Неожиданный перенос после разделителя", token.line)
             last_token = token
-
-    def check_brackets_indent(self):
-        inside_brackets = []
-        l_brackets = []
-        new_tokens = []
-
-        for token in self.tokens:
-            if token.type in [TypeToken.L_BRACKET, TypeToken.L_PAREN]:
-                inside_brackets.append([token])
-                l_brackets.append(token)
-            elif token.type in [TypeToken.R_BRACKET, TypeToken.R_PAREN]:
-                if len(l_brackets) > 0:
-                    last = l_brackets.pop()
-                    is_both_bracket = (last.type == TypeToken.L_BRACKET and
-                                       token.type == TypeToken.R_BRACKET)
-                    is_both_paren = (last.type == TypeToken.L_PAREN and
-                                     token.type == TypeToken.R_PAREN)
-                    if not is_both_paren and not is_both_bracket:
-                        print_error("Неправильный порядок скобок", token.line)
-                        self.process_r_bracket(inside_brackets, None, new_tokens)
-                    else:
-                        self.process_r_bracket(inside_brackets, token, new_tokens)
-                else:
-                    print_error("Лишняя закрывающая квадратная скобка", token.line)
-
-            elif token.type in [TypeToken.SEMICOLON, TypeToken.RESERVED]:
-                if len(l_brackets) > 0:
-                    self.process_too_many_brackets(inside_brackets, token, new_tokens)
-                else:
-                    new_tokens.append(token)
-            elif token.type is TypeToken.SPACE:
-                if len(inside_brackets) > 0:
-                    if len(inside_brackets[-1]) == 1:
-                        print_error("Лишний пробел после открывающей скобки", token.line)
-                    inside_brackets[-1].append(token)
-                else:
-                    new_tokens.append(token)
-            elif len(inside_brackets) > 0:
-                inside_brackets[-1].append(token)
-            else:
-                new_tokens.append(token)
-
-        self.tokens = new_tokens
-
-    @staticmethod
-    def process_too_many_brackets(inside_brackets, token, new_tokens):
-        print_error("Не хватает закрывающих квадратных скобок", token.line)
-        while len(inside_brackets) > 0:
-            bracket = inside_brackets.pop()
-            t = Token(Token.get_values_tokens(bracket), TypeToken.BRACKETS, bracket[0].line)
-            t.add_interior_tokens(bracket)
-            if len(inside_brackets) > 0:
-                inside_brackets[-1].append(t)
-            else:
-                new_tokens.append(t)
-
-    @staticmethod
-    def process_r_bracket(inside_brackets, token, new_tokens):
-        if inside_brackets[-1][-1].type is TypeToken.SPACE:
-            print_error("Лишний пробел", token.line)
-            inside_brackets[-1].pop()
-        if token:
-            inside_brackets[-1].append(token)
-        bracket = inside_brackets.pop()
-        t = Token(Token.get_values_tokens(bracket), TypeToken.BRACKETS, bracket[0].line)
-        t.add_interior_tokens(bracket)
-        if len(inside_brackets) > 0:
-            inside_brackets[-1].append(t)
-        else:
-            new_tokens.append(t)
