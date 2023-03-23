@@ -72,6 +72,8 @@ class Tokenizer:
                 return Token(token_value, TypeToken.OP_MATH, line)
             if token_value.lower() in self.reserved_tokens["logic_operator"]:
                 return Token(token_value, TypeToken.OP_LOGIC, line)
+            if token_value.lower() in self.reserved_tokens["types"]:
+                return Token(token_value, TypeToken.TYPE, line)
             return Token(token_value, TypeToken.RESERVED, line)
         return Token(token_value, TypeToken.NAME, line)
 
@@ -88,10 +90,10 @@ class Tokenizer:
         for token in tokens:
             if token.type is TypeToken.RESERVED:
                 reserved_name.append(token)
-                if token.value in self.reserved_tokens["declaration"]:
+                if token.value.lower() in self.reserved_tokens["declaration"]:
                     fl_declaration = True
                     type_declaration = token.value
-                elif token.value in self.reserved_tokens["code_block_delimiter"]:
+                elif token.value.lower() in self.reserved_tokens["code_block_delimiter"]:
                     if token.value.lower() == "end":
                         func = None
                     fl_declaration = False

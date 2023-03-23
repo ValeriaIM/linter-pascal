@@ -31,6 +31,7 @@ def check_expr_indent(tokens, nesting):
 
     admit = [
         TypeToken.NAME, TypeToken.NUMBER, TypeToken.STRING,
+        TypeToken.TYPE, TypeToken.ARRAY,
         TypeToken.EXPRESSION, TypeToken.BRACKETS,
         TypeToken.OP_MATH, TypeToken.OP_LOGIC,
         TypeToken.OP_ASSIGN, TypeToken.OP_COMPARE
@@ -153,8 +154,9 @@ class Linter:
             "names": self.check_names,
             "poins": self.check_points,
             "expression_indent": self.check_expression_indent,
-            "punctuation_indent": self.punctuation_indent,
             #"var_declaration_indent": self.check_var_indent,
+            "punctuation_indent": self.punctuation_indent
+            #
             #"level_indent": self.check_level_indent,
             #"block_indent": self.check_block_indent,
             #"begin_indent": self.check_begin_indent,
@@ -300,7 +302,91 @@ class Linter:
         self.tokens = new_tokens
 
     def check_expression_indent(self):
+        self.check_type_array()
         self.tokens = check_expr_indent(self.tokens, False)
+
+    def check_type_array(self):
+        new_type = []
+        fl_array = 0
+        last_token = None
+        new_tokens = []
+
+        for token in self.tokens:
+            if token.type is TypeToken.TYPE:
+                if token.value.lower() == "array":
+                    new_type.append(token)
+                    fl_array = 1
+                    last_token = token
+                    continue
+                if token.value.lower() == "of":
+                    if fl_array == 1 or fl_array == 4:
+                        self.check_space_token(last_token, 1)
+                        new_type.append(token)
+                        fl_array = 5
+                    elif fl_array > 1 and fl_array != 4:
+                        print_error("Неверно стоит of", token.line)
+                    else:
+                        new_tokens.append(token)
+                    continue
+                else:
+                    if fl_array == 5:
+                        self.check_space_token(token, 1)
+                        new_type.append(token)
+                        t = Token.get_token_from_list(new_type, TypeToken.ARRAY)
+                        new_tokens.append(t)
+                        new_type = []
+                        fl_array = 0
+                    else:
+                        new_tokens.append(token)
+            elif token.type is TypeToken.SPACE:
+                if fl_array > 0:
+                    new_type.append(token)
+                    last_token = token
+                else:
+                    new_tokens.append(token)
+            elif token.type is TypeToken.L_BRACKET:
+                fl_array = self.put_interval_init(new_type, [fl_array, 1, 2],
+                                                  token, last_token, new_tokens)
+                last_token = token
+            elif token.type is TypeToken.DIAPASON:
+                fl_array = self.put_interval_init(new_type, [fl_array, 2, 3],
+                                                  token, last_token, new_tokens)
+                last_token = token
+            elif token.type is TypeToken.R_BRACKET:
+                fl_array = self.put_interval_init(new_type, [fl_array, 3, 4],
+                                                  token, last_token, new_tokens)
+                last_token = token
+            else:
+                if len(new_type) > 0:
+                    print_error("Неожиданный токен в объявлении массива", token.line)
+                    t = Token.get_token_from_list(new_type, TypeToken.ARRAY)
+                    new_tokens.append(t)
+                new_tokens.append(token)
+        self.tokens = new_tokens
+
+
+    def put_interval_init(self, new_type, fls: list, token, last_token, tokens):
+        fl_array = fls[0]
+        fl_eq = fls[1]
+        fl_set = fls[2]
+
+        if fl_array == fl_eq:
+            self.check_space_token(last_token, 0)
+            new_type.append(token)
+            fl_array = fl_set
+        elif fl_array > 1:
+            print_error("Сначала пишется интервал", token.line)
+        else:
+            tokens.append(token)
+        return fl_array
+    @staticmethod
+    def check_space_token(token, indent):
+        if token.type is TypeToken.SPACE:
+            if len(token.value) > indent:
+                print_error("Слишком много пробелов", token.line)
+        else:
+            if indent != 0:
+                print_error("Пропущен пробел", token.line)
 
     def punctuation_indent(self):
         last_token = None

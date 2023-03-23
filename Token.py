@@ -25,10 +25,11 @@ class TypeToken(Enum):
     RESERVED = "RESERVED"
     NAME = "NAME"
     EXPRESSION = "EXPRESSION"
+    DECLARATION = "DECLARATION"
+    TYPE = "TYPE"
+    ARRAY = "ARRAY"
     BLOCK = "BLOCK"
     DIAPASON = "DIAPASON"
-    BODY_PR = "BODY_PR"
-    BODY_FUN = "BODY_FUN"
 
 
 class Token:
@@ -74,3 +75,10 @@ class Token:
         for token in tokens:
             s += token.value
         return s
+
+    @staticmethod
+    def get_token_from_list(tokens: list, type_t):
+        value = Token.get_values_tokens(tokens)
+        t = Token(value, type_t, tokens[0].line)
+        t.add_interior_tokens(tokens)
+        return t
