@@ -95,16 +95,14 @@ def check_expr_indent(tokens, nesting):
             if token.type in admit:
                 for_process_expr.append(token)
                 if last_token is not None:
-                    if not(last_token.type in [TypeToken.SPACE, TypeToken.TAB]):
+                    if not (last_token.type in [TypeToken.SPACE, TypeToken.TAB]):
                         print_error("пропущен пробел", last_token.line)
             else:
                 if len(for_process_expr) == 1:
                     new_tokens.append(for_process_expr[0])
                 if len(for_process_expr) > 1:
-                    value = Token.get_values_tokens(for_process_expr)
-                    expr = Token(value, TypeToken.EXPRESSION,
-                                 for_process_expr[0].line)
-                    expr.add_interior_tokens(for_process_expr)
+                    expr = Token.get_token(for_process_expr,
+                                           TypeToken.EXPRESSION)
                     new_tokens.append(expr)
                 for_process_expr = []
                 new_tokens.append(token)
@@ -118,20 +116,16 @@ def check_expr_indent(tokens, nesting):
                 expr = check_expr_indent(for_process_br.pop(), True)
                 expr.add_interior_tokens(for_process_br)
                 for_process_expr.append(expr)
-                value = Token.get_values_tokens(for_process_expr)
-                expr = Token(value, TypeToken.EXPRESSION,
-                             for_process_expr[0].line)
-                expr.add_interior_tokens(for_process_expr)
+                expr = Token.get_token(for_process_expr,
+                                       TypeToken.EXPRESSION)
                 new_tokens.append(expr)
                 new_tokens.append(token)
             last_token = token
 
     if nesting:
         upd_tokens = [first_brackets]
-        for t in new_tokens:
-            upd_tokens.append(t)
-        for t2 in for_process_expr:
-            upd_tokens.append(t2)
+        upd_tokens.extend(new_tokens)
+        upd_tokens.extend(for_process_expr)
         upd_tokens.append(last_brackets)
         value = Token.get_values_tokens(upd_tokens)
         t = Token(value, TypeToken.EXPRESSION,
@@ -153,15 +147,15 @@ class Linter:
         self.check_code = {
             "names": self.check_names,
             "poins": self.check_points,
+            "var_declaration_indent": self.check_var_indent,
             "expression_indent": self.check_expression_indent,
-            #"var_declaration_indent": self.check_var_indent,
             "punctuation_indent": self.punctuation_indent
             #
-            #"level_indent": self.check_level_indent,
-            #"block_indent": self.check_block_indent,
-            #"begin_indent": self.check_begin_indent,
-            #"max_line_length": self.check_max_line_length,
-            #"check_comments": self.check_check_comments
+            # "level_indent": self.check_level_indent,
+            # "block_indent": self.check_block_indent,
+            # "begin_indent": self.check_begin_indent,
+            # "max_line_length": self.check_max_line_length,
+            # "check_comments": self.check_check_comments
         }
 
     def set_setting(self, rules: Setting):
@@ -191,6 +185,14 @@ class Linter:
         self.const_names = names[2]
         self.function_names = names[3]
         self.reserved_name = names[4]
+        self.record_names = names[5]
+        decl_name = []
+        decl_name.extend(names[0])
+        decl_name.extend(names[1])
+        decl_name.extend(names[2])
+        decl_name.extend(names[3])
+        decl_name.extend(names[5])
+        self.decl_name = decl_name
 
     def check_names(self):
         self.check_that_names(self.var_names, self.setting.names["variable_name"])
@@ -221,8 +223,7 @@ class Linter:
                 if token.type_num == "float":
                     if len(diapason) == 3:
                         print_error("Числа в диапазоне должны быть целыми", token.line)
-                        for t in diapason:
-                            new_tokens.append(t)
+                        new_tokens.extend(diapason)
                         diapason = []
                     last = token
                     new_tokens.append(token)
@@ -244,8 +245,7 @@ class Linter:
                         continue
                 elif len(diapason) == 3:
                     print_error("Должна быть констанста", token.line)
-                for t in diapason:
-                    new_tokens.append(t)
+                new_tokens.extend(diapason)
                 new_tokens.append(token)
                 diapason = []
             elif token.type is TypeToken.POINT:
@@ -260,8 +260,7 @@ class Linter:
                     t = Token(Token.get_values_tokens(diapason), TypeToken.DIAPASON, diapason[0].line)
                     new_tokens.append(t)
                 else:
-                    for t in diapason:
-                        new_tokens.append(t)
+                    new_tokens.extend(diapason)
                 new_tokens.append(token)
                 diapason = []
 
@@ -302,7 +301,6 @@ class Linter:
         self.tokens = new_tokens
 
     def check_expression_indent(self):
-        self.check_type_array()
         self.tokens = check_expr_indent(self.tokens, False)
 
     def check_type_array(self):
@@ -332,7 +330,7 @@ class Linter:
                     if fl_array == 5:
                         self.check_space_token(token, 1)
                         new_type.append(token)
-                        t = Token.get_token_from_list(new_type, TypeToken.ARRAY)
+                        t = Token.get_token(new_type, TypeToken.ARRAY)
                         new_tokens.append(t)
                         new_type = []
                         fl_array = 0
@@ -359,11 +357,72 @@ class Linter:
             else:
                 if len(new_type) > 0:
                     print_error("Неожиданный токен в объявлении массива", token.line)
-                    t = Token.get_token_from_list(new_type, TypeToken.ARRAY)
+                    t = Token.get_token(new_type, TypeToken.ARRAY)
                     new_tokens.append(t)
                 new_tokens.append(token)
         self.tokens = new_tokens
 
+    def check_var_indent(self):
+        self.check_type_array()
+
+        new_decl = []
+        fl_decl = 0
+        new_tokens = []
+
+        for token in self.tokens:
+            if token in self.var_names or token in self.record_names:
+                fl_decl = 1
+                new_decl.append(token)
+                continue
+            if token.type is TypeToken.SPACE:
+                if fl_decl == 1:
+                    print_error("Лишний пробел перед :", token.line)
+                if fl_decl > 0:
+                    new_decl.append(token)
+                else:
+                    new_tokens.append(token)
+                continue
+            if token.type is TypeToken.COLON:
+                if fl_decl == 1:
+                    new_decl.append(token)
+                    fl_decl = 2
+                else:
+                    new_tokens.append(token)
+                continue
+            if self.is_type(token):
+                if fl_decl == 2:
+                    new_decl.append(token)
+                    t = Token.get_token(new_decl, TypeToken.DECLARATION)
+                    new_tokens.append(t)
+                    fl_decl = 0
+                    new_decl = []
+                else:
+                    new_tokens.append(token)
+                continue
+            if fl_decl > 0:
+                if token in self.decl_name:
+                    print_error("Ожидался тип/класс", token.line)
+                    new_decl.append(token)
+                else:
+                    print_error("Неожиданный символ в объявлении", token.line)
+                t = Token.get_token(new_decl, TypeToken.DECLARATION)
+                new_tokens.append(t)
+                fl_decl = 0
+                new_decl = []
+                new_tokens.append(token)
+            else:
+                new_tokens.append(token)
+
+        self.tokens = new_tokens
+
+    def is_type(self, token):
+        if token.type is TypeToken.TYPE:
+            return True
+        if token.type is TypeToken.ARRAY:
+            return True
+        if token in self.class_names:
+            return True
+        return False
 
     def put_interval_init(self, new_type, fls: list, token, last_token, tokens):
         fl_array = fls[0]
@@ -379,6 +438,7 @@ class Linter:
         else:
             tokens.append(token)
         return fl_array
+
     @staticmethod
     def check_space_token(token, indent):
         if token.type is TypeToken.SPACE:

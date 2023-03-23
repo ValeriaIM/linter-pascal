@@ -52,6 +52,15 @@ class Token:
     def __repr__(self):
         return str(self)
 
+    def __eq__(self, other):
+        if isinstance(other, Token):
+            return (
+                self.type == other.type and
+                self.value == other.value and
+                self.line == other.line
+            )
+        return False
+
     @staticmethod
     def get_type(t: str):
         for token in TypeToken.__members__.values():
@@ -77,7 +86,7 @@ class Token:
         return s
 
     @staticmethod
-    def get_token_from_list(tokens: list, type_t):
+    def get_token(tokens: list, type_t):
         value = Token.get_values_tokens(tokens)
         t = Token(value, type_t, tokens[0].line)
         t.add_interior_tokens(tokens)

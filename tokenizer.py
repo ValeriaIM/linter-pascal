@@ -2,6 +2,7 @@ import configparser
 import re
 from Token import Token, TypeToken
 
+
 class Tokenizer:
     def __init__(self):
         self.base_tokens = []
@@ -82,6 +83,7 @@ class Tokenizer:
         class_names = []
         const_names = []
         function_names = []
+        record_names = []
         reserved_name = []
         fl_declaration = False
         type_declaration = None
@@ -108,12 +110,15 @@ class Tokenizer:
                     elif type_declaration.lower() == "const":
                         token.set_visibility(func)
                         const_names.append(token)
+                    elif type_declaration.lower() == "record":
+                        token.set_visibility(func)
+                        record_names.append(token)
                     else:
                         func = token
                         function_names.append(token)
 
-
-        return [var_names, class_names, const_names, function_names, reserved_name]
+        return [var_names, class_names, const_names,
+                function_names, reserved_name, record_names]
 
     def set_reserved_words(self, file_name):
         config = configparser.ConfigParser(converters={'list': lambda x: [i.strip() for i in x.split(',')]})
