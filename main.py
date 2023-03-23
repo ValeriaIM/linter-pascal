@@ -52,10 +52,26 @@ def set_rules(file_name, linter):
     config.read(file_name)
     setting_args = []
 
-    if 'RULES' in config:
-        rules = config['RULES']
+    if 'NAMES' in config:
+        rules = config['NAMES']
         for key, value in rules.items():
             setting_args.append(value)
+    else:
+        setting_args.append([0 for i in range(5)])
+
+    if 'INDENT' in config:
+        rules = config['INDENT']
+        for key, value in rules.items():
+            setting_args.append(value)
+    else:
+        setting_args.append([0 for i in range(6)])
+
+    if 'LINES' in config:
+        rules = config['LINES']
+        for key, value in rules.items():
+            setting_args.append(value)
+    else:
+        setting_args.append([0 for i in range(2)])
 
     linter.set_setting(Setting(setting_args))
 
