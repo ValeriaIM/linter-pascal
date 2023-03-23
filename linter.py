@@ -145,6 +145,7 @@ class Linter:
         self.tokens = []
 
         self.check_code = {
+            "max_line_length": self.check_max_line_length,
             "names": self.check_names,
             "poins": self.check_points,
             "var_declaration_indent": self.check_var_indent,
@@ -152,10 +153,6 @@ class Linter:
             "punctuation_indent": self.punctuation_indent,
             "check_end_else_punct": self.check_end_else_punct,
             "check_tab": self.check_tab
-            # "level_indent": self.check_level_indent,
-            # "block_indent": self.check_block_indent,
-            # "begin_indent": self.check_begin_indent,
-            # "max_line_length": self.check_max_line_length,
             # "check_comments": self.check_check_comments
         }
 
@@ -585,3 +582,17 @@ class Linter:
                         print_error("; перед else", last_semicolon.line)
 
             last_token = token
+
+    def check_max_line_length(self):
+        line = 1
+        count = 0
+        max_c = int(self.setting.lines["max_line_length"])
+
+        for token in self.tokens:
+            if token.type is TypeToken.NEW_LINE:
+                line += 1
+                if count > max_c:
+                    print_error("Слишком длинная строка", line)
+                count = 0
+            else:
+                count += len(token.value)
