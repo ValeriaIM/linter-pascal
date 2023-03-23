@@ -44,22 +44,31 @@ class Tokenizer:
 
         tok_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
         line = 1
+        comments = []
 
         for str_code in code:
             for mo in re.finditer(tok_regex, str_code):
                 if mo.lastgroup == "NEW_LINE":
                     line += 1
-                # Создаем токен
-                token = self.create_token(mo, line)
-                # Добавляем токен в список
-                tokens.append(token)
+                t_type = mo.lastgroup
 
-        return tokens
+                if t_type == "COMMENT":
+                    com = mo.group(0).split('\n')
+                    token = self.create_token(t_type, com[0], line)
+                    comments.append(token)
+                    if len(com) > 1:
+                        token = self.create_token("NEW_LINE", com[1], line)
+                        tokens.append(token)
+                else:
+                    token = self.create_token(t_type, mo.group(0), line)
+                    if token.type is TypeToken.COMMENT:
+                        comments.append(token)
+                    else:
+                        tokens.append(token)
 
-    def create_token(self, mo, line):
-        token_type = mo.lastgroup
-        token_value = mo.group(0)
+        return tokens, comments
 
+    def create_token(self, token_type, token_value, line):
         if token_type == "NUMBER":
             t = Token(token_value, token_type, line)
             if token_value.isdigit():

@@ -143,6 +143,7 @@ class Linter:
         self.tokenizer = Tokenizer()
 
         self.tokens = []
+        self.comments = []
 
         self.check_code = {
             "max_line_length": self.check_max_line_length,
@@ -161,7 +162,7 @@ class Linter:
 
     def process_code(self, file):
         code = Linter.reading_file(file)
-        self.tokens = self.tokenizer.get_tokens_from_file(code)
+        self.tokens, self.comments = self.tokenizer.get_tokens_from_file(code)
         self.sort_name_tokens()
         for check_name, check_function in self.check_code.items():
             print("Checking " + check_name)
@@ -441,7 +442,7 @@ class Linter:
     def check_tab(self):
         lvl = 0
         fl_temp = False
-        fl_temp_begin = False
+        fl_temp_begin = 0
         is_first = True
         last_reserved = None
         last_tab = None
@@ -467,10 +468,10 @@ class Linter:
                         print_error("Ошибка табуляции", token.line)
                 if fl_temp:
                     if token.value.lower() == "begin":
-                        fl_temp_begin = True
+                        fl_temp_begin += 1
                     if token.value.lower() == "end":
-                        fl_temp_begin = False
-                    if not fl_temp_begin:
+                        fl_temp_begin -= 1
+                    if fl_temp_begin == 0:
                         fl_temp = False
                         lvl -= 1
 
@@ -574,7 +575,7 @@ class Linter:
                 last_token = token
                 continue
 
-            elif token.value.lower() == "else" :
+            elif token.value.lower() == "else":
                 was_else = True
                 if last_semicolon:
                     if token.line - last_semicolon.line == 1 and is_last:
@@ -596,3 +597,4 @@ class Linter:
                 count = 0
             else:
                 count += len(token.value)
+
