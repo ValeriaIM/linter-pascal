@@ -149,8 +149,8 @@ class Linter:
             "poins": self.check_points,
             "var_declaration_indent": self.check_var_indent,
             "expression_indent": self.check_expression_indent,
-            "punctuation_indent": self.punctuation_indent
-            #
+            "punctuation_indent": self.punctuation_indent,
+            "check_tab": self.check_tab
             # "level_indent": self.check_level_indent,
             # "block_indent": self.check_block_indent,
             # "begin_indent": self.check_begin_indent,
@@ -328,7 +328,7 @@ class Linter:
                     continue
                 else:
                     if fl_array == 5:
-                        self.check_space_token(token, 1)
+                        self.check_space_token(last_token, 1)
                         new_type.append(token)
                         t = Token.get_token(new_type, TypeToken.ARRAY)
                         new_tokens.append(t)
@@ -344,15 +344,15 @@ class Linter:
                     new_tokens.append(token)
             elif token.type is TypeToken.L_BRACKET:
                 fl_array = self.put_interval_init(new_type, [fl_array, 1, 2],
-                                                  token, last_token, new_tokens)
+                                                  token, last_token, new_tokens, 1)
                 last_token = token
             elif token.type is TypeToken.DIAPASON:
                 fl_array = self.put_interval_init(new_type, [fl_array, 2, 3],
-                                                  token, last_token, new_tokens)
+                                                  token, last_token, new_tokens, 0)
                 last_token = token
             elif token.type is TypeToken.R_BRACKET:
                 fl_array = self.put_interval_init(new_type, [fl_array, 3, 4],
-                                                  token, last_token, new_tokens)
+                                                  token, last_token, new_tokens, 0)
                 last_token = token
             else:
                 if len(new_type) > 0:
@@ -369,51 +369,104 @@ class Linter:
         fl_decl = 0
         new_tokens = []
 
-        for token in self.tokens:
-            if token in self.var_names or token in self.record_names:
-                fl_decl = 1
-                new_decl.append(token)
-                continue
-            if token.type is TypeToken.SPACE:
-                if fl_decl == 1:
-                    print_error("Лишний пробел перед :", token.line)
+        if isinstance(self.tokens, list):
+            for token in self.tokens:
+                if token in self.var_names or token in self.record_names:
+                    fl_decl = 1
+                    new_decl.append(token)
+                    continue
+                if token.type is TypeToken.SPACE:
+                    if fl_decl == 1:
+                        print_error("Лишний пробел перед :", token.line)
+                    if fl_decl > 0:
+                        new_decl.append(token)
+                    else:
+                        new_tokens.append(token)
+                    continue
+                if token.type is TypeToken.COLON:
+                    if fl_decl == 1:
+                        new_decl.append(token)
+                        fl_decl = 2
+                    else:
+                        new_tokens.append(token)
+                    continue
+                if self.is_type(token):
+                    if fl_decl == 2:
+                        new_decl.append(token)
+                        t = Token.get_token(new_decl, TypeToken.DECLARATION)
+                        new_tokens.append(t)
+                        fl_decl = 0
+                        new_decl = []
+                    else:
+                        new_tokens.append(token)
+                    continue
                 if fl_decl > 0:
-                    new_decl.append(token)
-                else:
-                    new_tokens.append(token)
-                continue
-            if token.type is TypeToken.COLON:
-                if fl_decl == 1:
-                    new_decl.append(token)
-                    fl_decl = 2
-                else:
-                    new_tokens.append(token)
-                continue
-            if self.is_type(token):
-                if fl_decl == 2:
-                    new_decl.append(token)
+                    if token in self.decl_name:
+                        print_error("Ожидался тип/класс", token.line)
+                        new_decl.append(token)
+                    else:
+                        print_error("Неожиданный символ в объявлении", token.line)
                     t = Token.get_token(new_decl, TypeToken.DECLARATION)
                     new_tokens.append(t)
                     fl_decl = 0
                     new_decl = []
+                    new_tokens.append(token)
                 else:
                     new_tokens.append(token)
-                continue
-            if fl_decl > 0:
-                if token in self.decl_name:
-                    print_error("Ожидался тип/класс", token.line)
-                    new_decl.append(token)
-                else:
-                    print_error("Неожиданный символ в объявлении", token.line)
-                t = Token.get_token(new_decl, TypeToken.DECLARATION)
-                new_tokens.append(t)
-                fl_decl = 0
-                new_decl = []
-                new_tokens.append(token)
-            else:
-                new_tokens.append(token)
 
         self.tokens = new_tokens
+
+    def check_tab(self):
+        lvl = 0
+        fl_temp = False
+        fl_temp_begin = False
+        is_first = True
+        last_reserved = None
+        last_tab = None
+        first_begin = None
+
+        for token in self.tokens:
+            if token.type is TypeToken.TAB:
+                last_tab = token
+                continue
+            if token.type is TypeToken.RESERVED:
+                last_reserved = token
+                if token.value.lower() == "begin" and first_begin is None:
+                    first_begin = token
+                    lvl -= 1
+            if is_first:
+                is_first = False
+                if token.value.lower() in self.tokenizer.info["down_lvl"] and lvl > 0:
+                    lvl -= 1
+                if last_tab is None and lvl > 0:
+                    print_error("Ошибка табуляции", token.line)
+                if last_tab is not None:
+                    if len(last_tab.value) != lvl:
+                        print_error("Ошибка табуляции", token.line)
+                if fl_temp:
+                    if token.value.lower() == "begin":
+                        fl_temp_begin = True
+                    if token.value.lower() == "end":
+                        fl_temp_begin = False
+                    if not fl_temp_begin:
+                        fl_temp = False
+                        lvl -= 1
+
+                continue
+            if token.type is TypeToken.NEW_LINE:
+                is_first = True
+                last_tab = None
+                if last_reserved is None:
+                    continue
+                if last_reserved.value.lower() in self.tokenizer.info["up_lvl"]:
+                    lvl += 1
+                    last_reserved = None
+                    continue
+                if last_reserved.value.lower() in self.tokenizer.info["temp_up_lvl"]:
+                    lvl += 1
+                    fl_temp = True
+                    last_reserved = None
+                    continue
 
     def is_type(self, token):
         if token.type is TypeToken.TYPE:
@@ -424,13 +477,13 @@ class Linter:
             return True
         return False
 
-    def put_interval_init(self, new_type, fls: list, token, last_token, tokens):
+    def put_interval_init(self, new_type, fls: list, token, last_token, tokens, i):
         fl_array = fls[0]
         fl_eq = fls[1]
         fl_set = fls[2]
 
         if fl_array == fl_eq:
-            self.check_space_token(last_token, 0)
+            self.check_space_token(last_token, i)
             new_type.append(token)
             fl_array = fl_set
         elif fl_array > 1:

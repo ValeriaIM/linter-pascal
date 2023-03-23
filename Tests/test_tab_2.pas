@@ -1,6 +1,6 @@
  program SamplePascalCode(INPUT, OUTPUT);
 var
-  Ch: char;
+	Ch: char;
 begin
-  writeln('Hello World')
+	writeln('Hello World')
 end.

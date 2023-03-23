@@ -10,7 +10,7 @@ type
 		Age: Integer;
 	end;
 var Ch: char;
-	A: int;
+	A: integer;
 begin
 	if 1 + 1 = 3 then
 		begin

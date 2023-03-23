@@ -10,7 +10,7 @@ class Tokenizer:
         self.signs = {}
         self.with_delimiter = []
         self.without_punctuation = []
-        self.cycle_info = {}
+        self.info = {}
         self.set_reserved_words('reserved_tokens.ini')
 
     def get_tokens_from_file(self, code):
@@ -155,7 +155,7 @@ class Tokenizer:
                 elif key == "without_punctuation":
                     self.without_punctuation = [t.strip() for t in value.split(',')]
                 else:
-                    self.cycle_info[key] = [t.strip() for t in value.split(',')]
+                    self.info[key] = [t.strip() for t in value.split(',')]
         else:
             print("Can't find INFO tokens")
             raise KeyError("В файле reserved_tokens.ini не хватает раздела")
