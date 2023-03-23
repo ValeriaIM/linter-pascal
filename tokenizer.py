@@ -19,9 +19,10 @@ class Tokenizer:
         operators_compare = r">=|<=|!=|==|>|<"
         operators_math = r"\+|-|\*|/"
         num = r'-?(?:\$)?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?'
+        comment = r'\{(?:.|\n)*?\}|\(\*(?:.|\n)*?\*\)|\/\/.*'
 
         token_specification = [
-            ("COMMENT", r'\{[^\}]*\}'),  # Комментарии
+            ("COMMENT", comment),  # Комментарии
             ("STRING", r'\'[^\']*\'|"[^"]*"'),  # Строковые литералы
             ("NUMBER", num),  # Числа
             ("IDENTIFIER", r'[a-zA-Z_][a-zA-Z0-9_]*'),  # Идентификаторы
