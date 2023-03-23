@@ -4,16 +4,19 @@ const Pi = 3.14;
 type
 	Latletter = ('A'..'z');
 var Ch: char;
-	A: int;
+	A: integer;
 begin
 	if 1 + 1 = 3 then
 		begin
 			writeln('Hello World');
 			writeln('Hello World');
-		end
+		end;
 	else
 		begin
-			writeln('Hello World');
+			begin
+				writeln('Hello World');
+				writeln('Hello World');
+			end
 			writeln('Hello World');
 		end
 end.

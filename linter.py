@@ -150,6 +150,7 @@ class Linter:
             "var_declaration_indent": self.check_var_indent,
             "expression_indent": self.check_expression_indent,
             "punctuation_indent": self.punctuation_indent,
+            "check_end_else_punct": self.check_end_else_punct,
             "check_tab": self.check_tab
             # "level_indent": self.check_level_indent,
             # "block_indent": self.check_block_indent,
@@ -505,7 +506,7 @@ class Linter:
         last_token = None
         indents = [TypeToken.TAB, TypeToken.SPACE, TypeToken.NEW_LINE]
         delimiters = [TypeToken.SEMICOLON, TypeToken.COLON, TypeToken.COMMA]
-        without_delimiters = ["if", "for", "to", "while"]
+        without_delimiters = ["if", "for", "to", "while", "then"]
         last_expr = None
         last_reserved = None
 
@@ -513,7 +514,7 @@ class Linter:
             if token.type is TypeToken.RESERVED:
                 last_reserved = token
                 last_expr = None
-            if token.type is TypeToken.EXPRESSION:
+            if token.type in [TypeToken.EXPRESSION, TypeToken.DECLARATION]:
                 last_expr = token
             if token.type in delimiters:
                 if last_token.type in indents:
@@ -521,6 +522,9 @@ class Linter:
                     continue
                 if last_expr and last_reserved:
                     if last_reserved.value.lower() in without_delimiters:
+                        print_error("Лишний разделитель", token.line)
+                if last_expr is None and last_reserved:
+                    if last_reserved.value.lower() != "end":
                         print_error("Лишний разделитель", token.line)
                 last_expr = None
                 last_reserved = None
@@ -541,4 +545,43 @@ class Linter:
                 last_reserved = None
                 if last_token.type in [TypeToken.COLON, TypeToken.COMMA]:
                     print_error("Неожиданный перенос после разделителя", token.line)
+            last_token = token
+
+    def check_end_else_punct(self):
+        last_end = None
+        last_semicolon = None
+        last_token = None
+        is_last = False
+        was_else = False
+        for token in self.tokens:
+            if token.type is TypeToken.SEMICOLON:
+                last_semicolon = token
+                last_token = token
+                if last_end:
+                    if last_end.line == token.line:
+                        last_end = token
+                continue
+            elif token.type is TypeToken.NEW_LINE:
+                if last_token == last_semicolon:
+                    is_last = True
+                last_token = token
+                continue
+            elif token.value.lower() == "end":
+                if last_end:
+                    if (last_end.type is not TypeToken.SEMICOLON and
+                            not was_else and (token.line - last_end.line) != 1):
+                        print_error("Пропущена ; после end", last_end.line)
+
+                was_else = False
+                last_end = token
+                last_token = token
+                continue
+
+            elif token.value.lower() == "else" :
+                was_else = True
+                if last_semicolon:
+                    if token.line - last_semicolon.line == 1 and is_last:
+                        is_last = False
+                        print_error("; перед else", last_semicolon.line)
+
             last_token = token
