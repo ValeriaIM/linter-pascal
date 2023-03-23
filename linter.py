@@ -362,6 +362,21 @@ class Linter:
                 new_tokens.append(token)
         self.tokens = new_tokens
 
+    def put_interval_init(self, new_type, fls: list, token, last_token, tokens, i):
+        fl_array = fls[0]
+        fl_eq = fls[1]
+        fl_set = fls[2]
+
+        if fl_array == fl_eq:
+            self.check_space_token(last_token, i)
+            new_type.append(token)
+            fl_array = fl_set
+        elif fl_array > 1:
+            print_error("Сначала пишется интервал", token.line)
+        else:
+            tokens.append(token)
+        return fl_array
+
     def check_var_indent(self):
         self.check_type_array()
 
@@ -416,6 +431,15 @@ class Linter:
 
         self.tokens = new_tokens
 
+    def is_type(self, token):
+        if token.type is TypeToken.TYPE:
+            return True
+        if token.type is TypeToken.ARRAY:
+            return True
+        if token in self.class_names:
+            return True
+        return False
+
     def check_tab(self):
         lvl = 0
         fl_temp = False
@@ -468,30 +492,6 @@ class Linter:
                     last_reserved = None
                     continue
 
-    def is_type(self, token):
-        if token.type is TypeToken.TYPE:
-            return True
-        if token.type is TypeToken.ARRAY:
-            return True
-        if token in self.class_names:
-            return True
-        return False
-
-    def put_interval_init(self, new_type, fls: list, token, last_token, tokens, i):
-        fl_array = fls[0]
-        fl_eq = fls[1]
-        fl_set = fls[2]
-
-        if fl_array == fl_eq:
-            self.check_space_token(last_token, i)
-            new_type.append(token)
-            fl_array = fl_set
-        elif fl_array > 1:
-            print_error("Сначала пишется интервал", token.line)
-        else:
-            tokens.append(token)
-        return fl_array
-
     @staticmethod
     def check_space_token(token, indent):
         if token.type is TypeToken.SPACE:
@@ -505,11 +505,25 @@ class Linter:
         last_token = None
         indents = [TypeToken.TAB, TypeToken.SPACE, TypeToken.NEW_LINE]
         delimiters = [TypeToken.SEMICOLON, TypeToken.COLON, TypeToken.COMMA]
+        without_delimiters = ["if", "for", "to", "while"]
+        last_expr = None
+        last_reserved = None
 
         for token in self.tokens:
+            if token.type is TypeToken.RESERVED:
+                last_reserved = token
+                last_expr = None
+            if token.type is TypeToken.EXPRESSION:
+                last_expr = token
             if token.type in delimiters:
                 if last_token.type in indents:
                     print_error("Лишний пробел перед разделителем", token.line)
+                    continue
+                if last_expr and last_reserved:
+                    if last_reserved.value.lower() in without_delimiters:
+                        print_error("Лишний разделитель", token.line)
+                last_expr = None
+                last_reserved = None
             elif token.type in [TypeToken.TAB, TypeToken.SPACE]:
                 if last_token.type is TypeToken.SEMICOLON:
                     print_error("Лишние пробелы после ; ", token.line)
@@ -517,6 +531,14 @@ class Linter:
                     if len(token.value) > 1:
                         print_error("Слишком много пробелов после разделителя", token.line)
             elif token.type is TypeToken.NEW_LINE:
+                if last_expr:
+                    if last_reserved:
+                        if not last_reserved.value.lower() in without_delimiters:
+                            print_error("Пропущен ;", token.line - 1)
+                    else:
+                        print_error("Пропущен ;", token.line - 1)
+                last_expr = None
+                last_reserved = None
                 if last_token.type in [TypeToken.COLON, TypeToken.COMMA]:
                     print_error("Неожиданный перенос после разделителя", token.line)
             last_token = token
