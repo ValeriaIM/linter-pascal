@@ -154,7 +154,6 @@ class Linter:
             "punctuation_indent": self.punctuation_indent,
             "check_end_else_punct": self.check_end_else_punct,
             "check_tab": self.check_tab
-            # "check_comments": self.check_check_comments
         }
 
     def set_setting(self, rules: Setting):
@@ -165,9 +164,8 @@ class Linter:
         self.tokens, self.comments = self.tokenizer.get_tokens_from_file(code)
         self.sort_name_tokens()
         for check_name, check_function in self.check_code.items():
-            print("Checking " + check_name)
+            #print("Checking " + check_name)
             check_function()
-            a = 0
         return 0
 
     @staticmethod
@@ -527,22 +525,20 @@ class Linter:
                 last_expr = None
                 last_reserved = None
             elif token.type in [TypeToken.TAB, TypeToken.SPACE]:
-                if last_token.type is TypeToken.SEMICOLON:
-                    print_error("Лишние пробелы после ; ", token.line)
-                elif last_token.type in [TypeToken.COLON, TypeToken.COMMA]:
-                    if len(token.value) > 1:
-                        print_error("Слишком много пробелов после разделителя", token.line)
+                if last_token:
+                    if last_token.type in [TypeToken.COLON, TypeToken.COMMA]:
+                        if len(token.value) > 1:
+                            print_error("Слишком много пробелов после разделителя", token.line)
             elif token.type is TypeToken.NEW_LINE:
                 if last_expr:
                     if last_reserved:
                         if not last_reserved.value.lower() in without_delimiters:
-                            print_error("Пропущен ;", token.line - 1)
+                            print_error("Пропущена ;", token.line - 1)
                     else:
-                        print_error("Пропущен ;", token.line - 1)
+                        print_error("Пропущена ;", token.line - 1)
                 last_expr = None
-                last_reserved = None
-                if last_token.type in [TypeToken.COLON, TypeToken.COMMA]:
-                    print_error("Неожиданный перенос после разделителя", token.line)
+                if last_token.type in [TypeToken.COLON]:
+                    print_error("Неожиданный перенос после :", token.line)
             last_token = token
 
     def check_end_else_punct(self):
