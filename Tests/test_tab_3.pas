@@ -1,7 +1,7 @@
 program SamplePascalCode(INPUT, OUTPUT);
 var
 	Ch: char;
-	A: int;
+    A: integer;
 begin
-	writeln('Hello World!')
+	writeln('Hello World!');
 end.

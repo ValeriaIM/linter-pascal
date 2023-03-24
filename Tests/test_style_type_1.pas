@@ -1,8 +1,8 @@
 program SamplePascalCode(INPUT, OUTPUT);
 type
-  Latletter = ('A'..'z');
-  Ch: char;
-  a: int;
+	Latletter = ('A'..'z');
+	Ch: char;
+	aA: integer;
 begin
-  writeln('Hello World')
+	writeln('Hello World');
 end.

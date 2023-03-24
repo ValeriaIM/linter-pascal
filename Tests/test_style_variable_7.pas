@@ -1,7 +1,7 @@
 program SamplePascalCode(INPUT, OUTPUT);
 var
-  Ch: char;
-  YY, Àל: int;
+	Ch: char;
+	YY, Àל: integer;
 begin
-  writeln('Hello World')
+	writeln('Hello World');
 end.

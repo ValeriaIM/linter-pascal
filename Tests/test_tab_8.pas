@@ -6,7 +6,7 @@ type
 	Latletter = ('A'..'z');
 var 
 	Ch: char;
-	A: int;
+	A: integer;
 begin
 	if 1 + 1 = 3 then
 		begin

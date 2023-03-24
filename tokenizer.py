@@ -20,12 +20,13 @@ class Tokenizer:
         operators_math = r"\+|-|\*|/"
         num = r'-?(?:\$)?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?'
         comment = r'\{(?:.|\n)*?\}|\(\*(?:.|\n)*?\*\)|\/\/.*'
+        identifier = r'[a-zA-Z_а-яА-Я][a-zA-Z0-9_]*[а-яА-Я0-9]*'
 
         token_specification = [
             ("COMMENT", comment),  # Комментарии
             ("STRING", r'\'[^\']*\'|"[^"]*"'),  # Строковые литералы
             ("NUMBER", num),  # Числа
-            ("IDENTIFIER", r'[a-zA-Z_][a-zA-Z0-9_]*'),  # Идентификаторы
+            ("IDENTIFIER", identifier),  # Идентификаторы
             ("L_PAREN", r'\('),  # Левая скобка
             ("R_PAREN", r'\)'),  # Правая скобка
             ("L_BRACKET", r'\['),  # Левая скобка

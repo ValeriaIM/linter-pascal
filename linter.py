@@ -203,7 +203,7 @@ class Linter:
         re_obj = re.compile(re_pattern)
         for token in names:
             if not re_obj.match(token.value):
-                e = "Неправильный стиль именнования переменной: " + token.value
+                e = "Неправильный стиль написания идентификатора: " + token.value
                 print_error(e, token.line)
 
     def check_points(self):

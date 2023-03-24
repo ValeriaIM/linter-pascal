@@ -1,11 +1,11 @@
 progrAm SamplePascalCode(INPUT, OUTPUT);
 cOnst Pi = 3.14;
-  Ri = $56
+	Ri = $56;
 var Ch: CHar;
-  A: inT;
+	A: inTeger;
 beGin
-  If 1 + 1 = 3 Then
-    wRiteln('Hello World')
-  elsE
-    wrIteln();
+	If 1 + 1 = 3 Then
+		wRiteln('Hello World')
+	elsE
+		wrIteln();
 eNd.
