@@ -12,15 +12,12 @@ class Setting:
         }
 
         self.indents = {
-            "level_indent": args[5],
-            "block_indent": args[6],
-            "operator_indent": args[7],
-            "var_declaration_indent": args[8],
-            "begin_indent": args[9],
-            "comment_indent": args[10]
+            "block_indent": args[5],
+            "var_declaration_indent": args[6],
+            "begin_indent": args[7]
         }
 
         self.lines = {
-            "max_line_length": args[11]
+            "max_line_length": args[8]
         }
 

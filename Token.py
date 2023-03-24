@@ -38,6 +38,8 @@ class Token:
         self.type = t
         if isinstance(t, str):
             self.type = self.get_type(t)
+        if self.type == TypeToken.BLOCK:
+            self.type_block = ""
         self.line = n
         self.tokens = []
         self.type_num = None
@@ -74,6 +76,10 @@ class Token:
 
     def set_visibility(self, area):
         self.visibility = area
+
+    def set_type_block(self, type_bl):
+        if self.type == TypeToken.BLOCK:
+            self.type_block = type_bl
 
     def add_interior_tokens(self, tokens):
         self.tokens = tokens

@@ -1,5 +1,4 @@
 import re
-from enum import Enum
 
 from errors import Error_Linter
 from setting import Setting
@@ -148,12 +147,13 @@ class Linter:
         self.check_code = {
             "max_line_length": self.check_max_line_length,
             "names": self.check_names,
-            "poins": self.check_points,
+            "points": self.check_points,
             "var_declaration_indent": self.check_var_indent,
             "expression_indent": self.check_expression_indent,
             "punctuation_indent": self.punctuation_indent,
             "check_end_else_punct": self.check_end_else_punct,
-            "check_tab": self.check_tab
+            "check_tab": self.check_tab,
+            "process_blocks": self.process_blocks
         }
 
     def set_setting(self, rules: Setting):
@@ -528,7 +528,7 @@ class Linter:
                 last_reserved = None
             elif token.type in [TypeToken.TAB, TypeToken.SPACE]:
                 if last_token:
-                    if last_token.type in [TypeToken.COLON, TypeToken.COMMA]:
+                    if last_token.type in delimiters:
                         if len(token.value) > 1:
                             print_error("Слишком много пробелов после разделителя", token.line)
             elif token.type is TypeToken.NEW_LINE:
@@ -596,3 +596,199 @@ class Linter:
             else:
                 count += len(token.value)
 
+    def process_blocks(self):
+        str_empty = []
+        last_count = 0
+        while len(self.tokens) != last_count:
+            last_count = len(self.tokens)
+            self.union_expr_in_block()
+            self.process_begin_in_blocks()
+            self.process_if_blocks()
+            str_empty.extend(self.process_empty_lines())
+
+        str_empty = set(str_empty)
+        print(str_empty)
+
+
+    def union_expr_in_block(self):
+        new_block = []
+        was_expr = False
+        new_tokens = []
+        admit = [TypeToken.TAB, TypeToken.SPACE,
+                 TypeToken.NEW_LINE, TypeToken.SEMICOLON]
+        count_expr = 0
+
+        for token in self.tokens:
+            if token.type in [TypeToken.EXPRESSION, TypeToken.BLOCK]:
+                new_block.append(token)
+                was_expr = True
+                count_expr += 1
+                continue
+            elif token.type in admit:
+                if was_expr:
+                    new_block.append(token)
+                else:
+                    new_tokens.append(token)
+                continue
+            else:
+                if count_expr > 1:
+                    t = Token.get_token(new_block, TypeToken.BLOCK)
+                    new_tokens.append(t)
+                elif count_expr == 1:
+                    new_tokens.extend(new_block)
+                new_block = []
+                was_expr = False
+                count_expr = 0
+                new_tokens.append(token)
+
+        if count_expr > 1:
+            t = Token.get_token(new_block, TypeToken.BLOCK)
+            new_tokens.append(t)
+        elif count_expr == 1:
+            new_tokens.extend(new_block)
+
+        self.tokens = new_tokens
+
+    def process_if_blocks(self):
+        new_block = []
+        fl_f = 0
+        new_tokens = []
+        indent = [TypeToken.TAB, TypeToken.SPACE, TypeToken.NEW_LINE]
+        was_indent = False
+
+        for token in self.tokens:
+            val = token.value.lower()
+            if val == "if":
+                if fl_f > 0:
+                    new_tokens.extend(new_block)
+                fl_f = 1
+                new_block.append(token)
+                was_indent = False
+                continue
+            if val == "then":
+                was_indent = self.process_was_indent(was_indent, token)
+                fl_f = self.process_if_elem(token, new_tokens, new_block, fl_f, [2])
+                continue
+            if val == "else":
+                was_indent = self.process_was_indent(was_indent, token)
+                fl_f = self.process_if_elem(token, new_tokens, new_block, fl_f, [4])
+                continue
+            if token.type in indent:
+                if fl_f > 0:
+                    new_block.append(token)
+                    was_indent = True
+                else:
+                    new_tokens.append(token)
+                continue
+            if token.type is TypeToken.EXPRESSION:
+                was_indent = self.process_was_indent(was_indent, token)
+                fl_f = self.process_if_elem(token, new_tokens, new_block, fl_f, [1, 3, 5])
+                continue
+            if token.type is TypeToken.BLOCK:
+                was_indent = self.process_was_indent(was_indent, token)
+                fl_f = self.process_if_elem(token, new_tokens, new_block, fl_f, [3, 5])
+                continue
+            else:
+                if fl_f in [4, 6]:
+                    t = Token.get_token(new_block, TypeToken.BLOCK)
+                    t.set_type_block("if")
+                    new_tokens.append(t)
+                    fl_f = 0
+                    new_block = []
+                    new_tokens.append(token)
+                    continue
+                if len(new_block) > 0:
+                    new_tokens.extend(new_block)
+                fl_f = 0
+                new_block = []
+                new_tokens.append(token)
+        self.tokens = new_tokens
+
+    @staticmethod
+    def process_was_indent(was_indent, token):
+        if not was_indent:
+            print_error("Пропущен пробел после if", token.line)
+        return False
+
+    @staticmethod
+    def process_if_elem(token, new_tokens, new_block, fl_f, i):
+        if fl_f in i:
+            new_block.append(token)
+            fl_f += 1
+            return fl_f
+        if fl_f > 0:
+            print_error(token.type + " не на своем месте", token.line)
+            new_block.append(token)
+        else:
+            new_tokens.append(token)
+        return fl_f
+
+    def process_begin_in_blocks(self):
+        new_block = []
+        new_tokens = []
+        admit = [TypeToken.TAB, TypeToken.SPACE,
+                 TypeToken.NEW_LINE, TypeToken.SEMICOLON]
+
+        for token in self.tokens:
+            val = token.value.lower()
+            if val == "begin":
+                if len(new_block) > 0:
+                    new_tokens.extend(new_block)
+                    new_block = []
+                new_block.append(token)
+                continue
+            if token.type in [TypeToken.EXPRESSION, TypeToken.BLOCK]:
+                if len(new_block) > 0:
+                    new_block.append(token)
+                else:
+                    new_tokens.append(token)
+                continue
+            if token.type in admit:
+                if len(new_block) > 0:
+                    new_block.append(token)
+                else:
+                    new_tokens.append(token)
+                continue
+            if val == "end":
+                if len(new_block) > 0:
+                    new_block.append(token)
+                    t = Token.get_token(new_block, TypeToken.BLOCK)
+                    new_block = []
+                    new_tokens.append(t)
+                else:
+                    new_tokens.append(token)
+            else:
+                new_tokens.extend(new_block)
+                new_block = []
+                new_tokens.append(token)
+
+        self.tokens = new_tokens
+
+    def process_empty_lines(self):
+        was_empty_line = []
+        is_empty_line = True
+        is_first = True
+        indents = [TypeToken.TAB, TypeToken.SPACE, TypeToken.NEW_LINE]
+        bl_indent = int(self.setting.indents["block_indent"])
+        block = ["if"]
+        result = []
+
+        for token in self.tokens:
+            if token.type is TypeToken.NEW_LINE:
+                was_empty_line.append(is_empty_line)
+                is_empty_line = True
+                is_first = True
+            elif token.type in indents:
+                continue
+            else:
+                is_empty_line = False
+                if is_first:
+                    is_first = False
+                    if token.type is TypeToken.BLOCK:
+                        if token.type_block in block:
+                            lines = was_empty_line[-bl_indent:]
+                            for is_empty in lines:
+                                if not is_empty:
+                                    result.append("Ожидалась пустая строка, строка: " + str(token.line))
+                                    break
+        return result
