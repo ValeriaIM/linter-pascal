@@ -464,6 +464,8 @@ class Linter:
                 if last_tab is not None:
                     if len(last_tab.value) != lvl:
                         print_error("Ошибка табуляции", token.line)
+                if token.type is TypeToken.SPACE:
+                    print_error("Пробел в начале строки", token.line)
                 if fl_temp:
                     if token.value.lower() == "begin":
                         fl_temp_begin += 1
